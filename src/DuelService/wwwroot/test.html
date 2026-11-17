@@ -1,0 +1,82 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Тест хаба дуэли</title>
+</head>
+<body>
+  <h3>Тест хаба дуэли (временная страница)</h3>
+
+  <p>Токен: <input id="token" size="70"></p>
+  <button onclick="connect()">Подключиться</button>
+
+  <p>Id дуэли: <input id="duelId" size="6">
+     <button onclick="joinDuel()">JoinDuel</button></p>
+
+  <p>Id категории: <input id="categoryId" size="6">
+     <button onclick="banCategory()">BanCategory</button></p>
+
+  <p>Флаг: <input id="flag" size="30">
+     <button onclick="submitFlag()">SubmitFlag</button></p>
+
+  <pre id="log"></pre>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+  <script>
+    let connection;
+
+    function log(text) {
+      document.getElementById("log").textContent += text + "\n\n";
+    }
+
+    async function connect() {
+      const token = document.getElementById("token").value;
+
+      connection = new signalR.HubConnectionBuilder()
+        .withUrl("/hubs/duel", { accessTokenFactory: () => token })
+        .build();
+
+      const events = ["DuelState", "CategoryBanned", "DuelStarted", "DuelFinished", "OpponentWrongFlag"];
+      events.forEach(name => {
+        connection.on(name, data => log(name + ": " + JSON.stringify(data, null, 2)));
+      });
+
+      try {
+        await connection.start();
+        log("Подключено");
+      } catch (e) {
+        log("Ошибка подключения: " + e.message);
+      }
+    }
+
+    async function call(method, ...args) {
+      try {
+        await connection.invoke(method, ...args);
+      } catch (e) {
+        log("ОШИБКА: " + e.message);
+      }
+    }
+
+    function joinDuel() {
+      call("JoinDuel", Number(document.getElementById("duelId").value));
+    }
+
+    function banCategory() {
+      call("BanCategory",
+        Number(document.getElementById("duelId").value),
+        Number(document.getElementById("categoryId").value));
+    }
+
+    async function submitFlag() {
+      try {
+        const ok = await connection.invoke("SubmitFlag",
+          Number(document.getElementById("duelId").value),
+          document.getElementById("flag").value);
+        log("Мой результат: " + (ok ? "ВЕРНО" : "неверно"));
+      } catch (e) {
+        log("ОШИБКА: " + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
