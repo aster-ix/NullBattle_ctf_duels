@@ -1,0 +1,80 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Тест поиска соперника</title>
+</head>
+<body>
+    <h3>Тест поиска соперника (временная страница)</h3>
+
+    <p>Токен: <input id="token" size="70"></p>
+    <button onclick="connect()">Подключиться</button>
+
+    <p>
+        Сложность:
+        <select id="difficulty">
+            <option>EASY</option>
+            <option>MEDIUM</option>
+            <option>HARD</option>
+        </select>
+        <button onclick="joinQueue()">JoinQueue</button>
+        <button onclick="leaveQueue()">LeaveQueue</button>
+        <button onclick="getStatus()">Статус (HTTP)</button>
+    </p>
+
+    <pre id="log"></pre>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script>let connection;
+
+    function log(text) {
+      document.getElementById("log").textContent += text + "\n\n";
+    }
+
+    async function connect() {
+      const token = document.getElementById("token").value;
+
+      connection = new signalR.HubConnectionBuilder()
+        .withUrl("/hubs/matchmaking", { accessTokenFactory: () => token })
+        .build();
+
+      const events = ["MatchFound", "MatchFailed"];
+      events.forEach(name => {
+        connection.on(name, data => log(name + ": " + JSON.stringify(data, null, 2)));
+      });
+
+      try {
+        await connection.start();
+        log("Подключено");
+      } catch (e) {
+        log("Ошибка подключения: " + e.message);
+      }
+    }
+
+    async function joinQueue() {
+      try {
+        const status = await connection.invoke("JoinQueue", document.getElementById("difficulty").value);
+        log("JoinQueue: " + JSON.stringify(status));
+      } catch (e) {
+        log("ОШИБКА: " + e.message);
+      }
+    }
+
+    async function leaveQueue() {
+      try {
+        await connection.invoke("LeaveQueue");
+        log("LeaveQueue выполнен");
+      } catch (e) {
+        log("ОШИБКА: " + e.message);
+      }
+    }
+
+    async function getStatus() {
+      const token = document.getElementById("token").value;
+      const response = await fetch("/api/matchmaking/status", {
+        headers: { Authorization: "Bearer " + token }
+      });
+      log("Статус (" + response.status + "): " + (await response.text()));
+    }</script>
+</body>
+</html>
