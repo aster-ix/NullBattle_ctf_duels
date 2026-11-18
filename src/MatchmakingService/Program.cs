@@ -9,6 +9,7 @@ using NullBattle.Matchmaking.Middleware;
 using NullBattle.Matchmaking.Services;
 using NullBattle.Matchmaking.Storage;
 using StackExchange.Redis;
+using NullBattle.Matchmaking.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,13 @@ builder.Services.AddHttpClient<RatingServiceClient>(client =>
     client.BaseAddress = new Uri(builder.Configuration["Services:RatingServiceUrl"]!);
     client.Timeout = TimeSpan.FromSeconds(5);
 });
+builder.Services.AddHttpClient<DuelServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:DuelServiceUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+builder.Services.AddSingleton<MatchNotifier>();
+builder.Services.AddHostedService<MatchmakingWorker>();
 
 builder.Services.AddScoped<MatchmakingService>();
 

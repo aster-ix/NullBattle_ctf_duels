@@ -1,4 +1,5 @@
 ﻿using NullBattle.Matchmaking.Clients;
+using NullBattle.Matchmaking.Dtos;
 using NullBattle.Matchmaking.DTOs;
 using NullBattle.Matchmaking.Exceptions;
 using NullBattle.Matchmaking.Models;
@@ -8,15 +9,29 @@ namespace NullBattle.Matchmaking.Services;
 
 public class MatchmakingService
 {
+    private const int BaseRatingDiff = 100;
+    private const int RatingDiffPerSecond = 10;
+
     private static readonly SemaphoreSlim QueueLock = new SemaphoreSlim(1, 1);
 
     private readonly QueueStore _queueStore;
     private readonly RatingServiceClient _ratingClient;
+    private readonly DuelServiceClient _duelClient;
+    private readonly MatchNotifier _notifier;
+    private readonly ILogger<MatchmakingService> _logger;
 
-    public MatchmakingService(QueueStore queueStore, RatingServiceClient ratingClient)
+    public MatchmakingService(
+        QueueStore queueStore,
+        RatingServiceClient ratingClient,
+        DuelServiceClient duelClient,
+        MatchNotifier notifier,
+        ILogger<MatchmakingService> logger)
     {
         _queueStore = queueStore;
         _ratingClient = ratingClient;
+        _duelClient = duelClient;
+        _notifier = notifier;
+        _logger = logger;
     }
 
     public async Task<QueueStatusResponse> JoinQueueAsync(long userId, string connectionId, Difficulty difficulty)
@@ -79,6 +94,79 @@ public class MatchmakingService
             return new QueueStatusResponse { InQueue = false, Difficulty = null, WaitingSeconds = 0 };
         }
         return ToStatus(entry);
+    }
+
+    public async Task FindMatchesAsync()
+    {
+        await QueueLock.WaitAsync();
+        try
+        {
+            var entries = await _queueStore.GetAllAsync();
+            var now = DateTime.UtcNow;
+
+            foreach (var group in entries.GroupBy(e => e.Difficulty))
+            {
+                var players = group.ToList();
+
+                var i = 0;
+                while (i < players.Count - 1)
+                {
+                    if (CanMatch(players[i], players[i + 1], now))
+                    {
+                        await CreateMatchAsync(players[i], players[i + 1]);
+                        i += 2;
+                    }
+                    else
+                    {
+                        i++;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            QueueLock.Release();
+        }
+    }
+
+    private static bool CanMatch(QueueEntry a, QueueEntry b, DateTime now)
+    {
+        var waited = Math.Max((now - a.JoinedAt).TotalSeconds, (now - b.JoinedAt).TotalSeconds);
+        var allowedDiff = BaseRatingDiff + waited * RatingDiffPerSecond;
+
+        return Math.Abs(a.Rating - b.Rating) <= allowedDiff;
+    }
+
+    private async Task CreateMatchAsync(QueueEntry first, QueueEntry second)
+    {
+        await _queueStore.RemoveAsync(first.UserId);
+        await _queueStore.RemoveAsync(second.UserId);
+
+        var player1 = first;
+        var player2 = second;
+        if (Random.Shared.Next(2) == 0)
+        {
+            player1 = second;
+            player2 = first;
+        }
+
+        long duelId;
+        try
+        {
+            duelId = await _duelClient.CreateDuelAsync(player1.UserId, player2.UserId, first.Difficulty);
+        }
+        catch (AppException ex)
+        {
+            _logger.LogWarning("Не удалось создать дуэль для {A} и {B}: {Message}",
+                player1.UserId, player2.UserId, ex.Message);
+            await _notifier.NotifyMatchFailedAsync(first.ConnectionId);
+            await _notifier.NotifyMatchFailedAsync(second.ConnectionId);
+            return;
+        }
+
+        _logger.LogInformation("Найдена пара {A} и {B}, дуэль {DuelId}", player1.UserId, player2.UserId, duelId);
+        await _notifier.NotifyMatchFoundAsync(first.ConnectionId, duelId);
+        await _notifier.NotifyMatchFoundAsync(second.ConnectionId, duelId);
     }
 
     private static QueueStatusResponse ToStatus(QueueEntry entry)

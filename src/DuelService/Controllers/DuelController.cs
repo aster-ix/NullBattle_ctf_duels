@@ -19,7 +19,7 @@ public class DuelController : ControllerBase
 
 
     [HttpPost]
-    [Authorize(Roles = "Service,Admin")]
+    [Authorize(Roles = "Service")]
     public async Task<IActionResult> CreateDuel(CreateDuelRequest dto)
     {
         var response = await _duelService.CreateDuelAsync(dto);
