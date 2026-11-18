@@ -1,15 +1,19 @@
-using System.Text;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using NullBattle.Matchmaking.Clients;
 using NullBattle.Matchmaking.Hubs;
+using NullBattle.Matchmaking.Messaging;
 using NullBattle.Matchmaking.Middleware;
 using NullBattle.Matchmaking.Services;
 using NullBattle.Matchmaking.Storage;
-using StackExchange.Redis;
 using NullBattle.Matchmaking.Workers;
+using StackExchange.Redis;
+using System.Text;
+using System.Text.Json.Serialization;
+
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +37,7 @@ builder.Services.AddHttpClient<DuelServiceClient>(client =>
 });
 builder.Services.AddSingleton<MatchNotifier>();
 builder.Services.AddHostedService<MatchmakingWorker>();
-
+builder.Services.AddSingleton<LogPublisher>();
 builder.Services.AddScoped<MatchmakingService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"]!;

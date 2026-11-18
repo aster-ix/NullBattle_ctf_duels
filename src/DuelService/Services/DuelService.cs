@@ -17,14 +17,18 @@ public class DuelService
     private readonly TaskServiceClient _taskClient;
     private readonly DuelEventPublisher _eventPublisher;
 
+    private readonly LogPublisher _logPublisher;
+
     public DuelService(
         DuelRepository duelRepository,
         TaskServiceClient taskClient,
-        DuelEventPublisher eventPublisher)
+        DuelEventPublisher eventPublisher,
+        LogPublisher logPublisher)
     {
         _duelRepository = duelRepository;
         _taskClient = taskClient;
         _eventPublisher = eventPublisher;
+        _logPublisher = logPublisher;
     }
 
     public async Task<DuelResponse> CreateDuelAsync(CreateDuelRequest dto)
@@ -64,7 +68,7 @@ public class DuelService
         duel.Players.Add(new DuelUser { UserId = dto.Player2Id });
 
         await _duelRepository.AddAsync(duel);
-
+        _logPublisher.Info($"Создана дуэль {duel.Id}: игроки {dto.Player1Id} и {dto.Player2Id}, сложность {dto.Difficulty}");
         return ToResponse(duel);
     }
 
@@ -160,6 +164,7 @@ public class DuelService
 
             if (isCorrect)
             {
+                _logPublisher.Info($"Дуэль {duel.Id} завершена, победитель {userId}");
                 await PublishFinishedAsync(duel);
             }
 
@@ -201,6 +206,18 @@ public class DuelService
             }
 
             await _duelRepository.SaveAsync();
+
+            foreach (var duel in duels)
+            {
+                if (duel.Status == DuelStatus.CANCELLED)
+                {
+                    _logPublisher.Warn($"Дуэль {duel.Id} отменена: время на баны вышло");
+                }
+                else
+                {
+                    _logPublisher.Info($"Дуэль {duel.Id} завершена ничьей: время вышло");
+                }
+            }
 
             foreach (var duel in duels.Where(d => d.Status == DuelStatus.FINISHED))
             {
@@ -322,7 +339,10 @@ public class DuelService
         }
 
         await _duelRepository.SaveAsync();
-
+        if (task != null)
+        {
+            _logPublisher.Info($"Дуэль {duel.Id} началась, задача {task.Id}");
+        }
         var response = ToResponse(duel);
         response.Task = task;
 

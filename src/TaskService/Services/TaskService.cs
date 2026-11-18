@@ -1,6 +1,7 @@
 ﻿using NullBattle.TaskBank.Dtos;
 using NullBattle.TaskBank.DTOs;
 using NullBattle.TaskBank.Exceptions;
+using NullBattle.TaskBank.Messaging;
 using NullBattle.TaskBank.Models;
 using NullBattle.TaskBank.Repositories;
 using NullBattle.TaskBank.Storage;
@@ -15,11 +16,18 @@ public class TaskService
     private readonly FlagHasher _flagHasher;
     private readonly FileStorage _fileStorage;
 
-    public TaskService(TaskRepository taskRepository, FlagHasher flagHasher, FileStorage fileStorage)
+    private readonly LogPublisher _logPublisher;
+
+    public TaskService(
+        TaskRepository taskRepository,
+        FlagHasher flagHasher,
+        FileStorage fileStorage,
+        LogPublisher logPublisher)
     {
         _taskRepository = taskRepository;
         _flagHasher = flagHasher;
         _fileStorage = fileStorage;
+        _logPublisher = logPublisher;
     }
 
     public async Task<TaskResponse> CreateTaskAsync(long authorId, TaskRequest dto)
@@ -40,6 +48,7 @@ public class TaskService
             FlagHash = _flagHasher.Hash(dto.Flag.Trim())
         };
         await _taskRepository.AddAsync(task);
+        _logPublisher.Info($"Автор {authorId} создал задачу {task.Id} «{task.Title}»");
 
         return ToResponse(task);
     }
@@ -63,7 +72,7 @@ public class TaskService
         task.Points = dto.Points;
         task.FlagHash = _flagHasher.Hash(dto.Flag.Trim());
         await _taskRepository.UpdateAsync(task);
-
+        _logPublisher.Info($"Изменена задача {task.Id} «{task.Title}»");
         return ToResponse(task);
     }
 

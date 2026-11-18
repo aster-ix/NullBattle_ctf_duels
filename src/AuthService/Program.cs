@@ -1,12 +1,16 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using NullBattle.Auth.Data;
+using NullBattle.Auth.Messaging;
 using NullBattle.Auth.Middleware;
 using NullBattle.Auth.Repositories;
 using NullBattle.Auth.Services;
+using System.Text;
+
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +23,7 @@ builder.Services.AddSingleton<PasswordHasher>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddSingleton<JwtTokenService>();
-
+builder.Services.AddSingleton<LogPublisher>();
 builder.Services.AddScoped<AuthService>();
 
 // проверка jwt

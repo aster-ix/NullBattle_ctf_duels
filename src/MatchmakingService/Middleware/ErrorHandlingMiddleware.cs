@@ -1,4 +1,5 @@
 ﻿using NullBattle.Matchmaking.Exceptions;
+using NullBattle.Matchmaking.Messaging;
 
 namespace NullBattle.Matchmaking.Middleware;
 
@@ -7,10 +8,13 @@ public class ErrorHandlingMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
 
-    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
+    private readonly LogPublisher _logPublisher;
+
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger, LogPublisher logPublisher)
     {
         _next = next;
         _logger = logger;
+        _logPublisher = logPublisher;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -31,7 +35,8 @@ public class ErrorHandlingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "необработанная ошибка");
+            _logger.LogError(ex, "Необработанная ошибка");
+            _logPublisher.Error($"{context.Request.Method} {context.Request.Path}: {ex.Message}");
             context.Response.StatusCode = 500;
             await context.Response.WriteAsJsonAsync(new { error = "Внутренняя ошибка сервера" });
         }

@@ -1,5 +1,6 @@
 ﻿using NullBattle.Ratings.DTOs;
 using NullBattle.Ratings.Exceptions;
+using NullBattle.Ratings.Messaging;
 using NullBattle.Ratings.Models;
 using NullBattle.Ratings.Repositories;
 
@@ -12,10 +13,16 @@ public class RatingService
     private readonly RatingRepository _ratingRepository;
     private readonly EloCalculator _eloCalculator;
 
-    public RatingService(RatingRepository ratingRepository, EloCalculator eloCalculator)
+    private readonly LogPublisher _logPublisher;
+
+    public RatingService(
+        RatingRepository ratingRepository,
+        EloCalculator eloCalculator,
+        LogPublisher logPublisher)
     {
         _ratingRepository = ratingRepository;
         _eloCalculator = eloCalculator;
+        _logPublisher = logPublisher;
     }
 
     public async Task<RatingResponse> GetRatingAsync(long userId)
@@ -128,6 +135,7 @@ public class RatingService
 
      
         await _ratingRepository.SaveAsync();
+        _logPublisher.Info($"Рейтинг обновлён по дуэли {duel.DuelId}: игрок {duel.Player1Id} ({delta1}), игрок {duel.Player2Id} ({delta2})");
     }
 
     private async Task<PlayerRating> GetOrCreateAsync(long userId)

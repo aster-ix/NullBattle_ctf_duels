@@ -1,14 +1,18 @@
-using System.Text;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using NullBattle.TaskBank.Data;
+using NullBattle.TaskBank.Messaging;
 using NullBattle.TaskBank.Middleware;
 using NullBattle.TaskBank.Repositories;
 using NullBattle.TaskBank.Services;
 using NullBattle.TaskBank.Storage;
+using System.Text;
+using System.Text.Json.Serialization;
+
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +25,7 @@ builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<TaskRepository>();
 builder.Services.AddSingleton<FlagHasher>();
 builder.Services.AddSingleton<FileStorage>();
+builder.Services.AddSingleton<LogPublisher>();
 
 
 // Проверка JWT

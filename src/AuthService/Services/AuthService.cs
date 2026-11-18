@@ -1,6 +1,7 @@
 ﻿
 using NullBattle.Auth.DTOs;
 using NullBattle.Auth.Exceptions;
+using NullBattle.Auth.Messaging;
 using NullBattle.Auth.Models;
 using NullBattle.Auth.Repositories;
 
@@ -12,14 +13,18 @@ public class AuthService
     private readonly PasswordHasher _passwordHasher;
     private readonly JwtTokenService _tokenService;
 
+    private readonly LogPublisher _logPublisher;
+
     public AuthService(
         UserRepository userRepository,
         PasswordHasher passwordHasher,
-        JwtTokenService tokenService)
+        JwtTokenService tokenService,
+        LogPublisher logPublisher)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
+        _logPublisher = logPublisher;
     }
 
     public async Task<AuthResponse> RegisterAsync(AuthRequest dto)
@@ -47,6 +52,7 @@ public class AuthService
             PasswordHash = _passwordHasher.Hash(dto.Password)
         };
         await _userRepository.AddAsync(user, "Player");
+        _logPublisher.Info($"Зарегистрирован игрок {nickname} (id {user.Id})");
 
         return _tokenService.GenerateToken(user, new List<string> { "Player" });
     }
@@ -63,6 +69,7 @@ public class AuthService
 
         if (user.IsBanned)
         {
+            _logPublisher.Warn($"Попытка входа заблокированного игрока {user.Id}");
             throw new AppException(403, "аккаунт заблокирован");
         }
 
@@ -87,22 +94,25 @@ public class AuthService
         return users.Select(ToDto).ToList();
     }
 
-    public async Task SetBanAsync(long userId, bool isBanned)
+    public async Task SetBanAsync(long adminId, long userId, bool isBanned)
     {
         var user = await _userRepository.GetByIdAsync(userId);
         if (user == null)
         {
-            throw new AppException(404, "пользователь не найден");
+            throw new AppException(404, "Пользователь не найден");
         }
 
         var isAdmin = user.UserRoles.Any(ur => ur.Role.Name == "Admin");
         if (isBanned && isAdmin)
         {
-            throw new AppException(400, "нельзя заблокировать администратора");
+            throw new AppException(400, "Нельзя заблокировать администратора");
         }
 
         user.IsBanned = isBanned;
         await _userRepository.UpdateAsync(user);
+
+        var action = isBanned ? "заблокировал" : "разблокировал";
+        _logPublisher.Info($"Админ {adminId} {action} игрока {userId}");
     }
 
     private static UserDto ToDto(User user)

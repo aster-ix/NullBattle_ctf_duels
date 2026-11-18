@@ -9,6 +9,8 @@ using NullBattle.Ratings.Repositories;
 using NullBattle.Ratings.Services;
 using System.Text;
 
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -44,7 +46,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     });
 builder.Services.AddAuthorization();
 builder.Services.AddHostedService<DuelEventConsumer>();
-
+builder.Services.AddSingleton<LogPublisher>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

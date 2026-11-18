@@ -13,6 +13,8 @@ using NullBattle.Duels.Workers;
 using System.Text;
 using System.Text.Json.Serialization;
 
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +55,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme) .AddJ
     });
 builder.Services.AddAuthorization();
 
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -66,6 +69,7 @@ builder.Services.AddSwaggerGen(options =>
 
 
 builder.Services.AddSingleton<ServiceTokenProvider>();
+builder.Services.AddSingleton<LogPublisher>();
 builder.Services.AddHttpClient<TaskServiceClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:TaskServiceUrl"]!);

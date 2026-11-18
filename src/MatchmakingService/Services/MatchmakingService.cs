@@ -2,6 +2,7 @@
 using NullBattle.Matchmaking.Dtos;
 using NullBattle.Matchmaking.DTOs;
 using NullBattle.Matchmaking.Exceptions;
+using NullBattle.Matchmaking.Messaging;
 using NullBattle.Matchmaking.Models;
 using NullBattle.Matchmaking.Storage;
 
@@ -20,18 +21,22 @@ public class MatchmakingService
     private readonly MatchNotifier _notifier;
     private readonly ILogger<MatchmakingService> _logger;
 
+    private readonly LogPublisher _logPublisher;
+
     public MatchmakingService(
         QueueStore queueStore,
         RatingServiceClient ratingClient,
         DuelServiceClient duelClient,
         MatchNotifier notifier,
-        ILogger<MatchmakingService> logger)
+        ILogger<MatchmakingService> logger,
+        LogPublisher logPublisher)
     {
         _queueStore = queueStore;
         _ratingClient = ratingClient;
         _duelClient = duelClient;
         _notifier = notifier;
         _logger = logger;
+        _logPublisher = logPublisher;
     }
 
     public async Task<QueueStatusResponse> JoinQueueAsync(long userId, string connectionId, Difficulty difficulty)
@@ -161,10 +166,12 @@ public class MatchmakingService
                 player1.UserId, player2.UserId, ex.Message);
             await _notifier.NotifyMatchFailedAsync(first.ConnectionId);
             await _notifier.NotifyMatchFailedAsync(second.ConnectionId);
+            _logPublisher.Warn($"Не удалось создать дуэль для {player1.UserId} и {player2.UserId}: {ex.Message}");
             return;
         }
 
         _logger.LogInformation("Найдена пара {A} и {B}, дуэль {DuelId}", player1.UserId, player2.UserId, duelId);
+        _logPublisher.Info($"Найдена пара {player1.UserId} и {player2.UserId}, дуэль {duelId}");
         await _notifier.NotifyMatchFoundAsync(first.ConnectionId, duelId);
         await _notifier.NotifyMatchFoundAsync(second.ConnectionId, duelId);
     }

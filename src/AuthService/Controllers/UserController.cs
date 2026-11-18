@@ -26,14 +26,16 @@ public class UsersController : ControllerBase
     [HttpPost("{id}/ban")]
     public async Task<IActionResult> Ban(long id)
     {
-        await _authService.SetBanAsync(id, true);
+        var adminId = long.Parse(User.FindFirst("sub")!.Value);
+        await _authService.SetBanAsync(adminId, id, true);
         return NoContent();
     }
 
     [HttpPost("{id}/unban")]
     public async Task<IActionResult> Unban(long id)
     {
-        await _authService.SetBanAsync(id, false);
+        var adminId = long.Parse(User.FindFirst("sub")!.Value);
+        await _authService.SetBanAsync(adminId, id, false);
         return NoContent();
     }
 }
